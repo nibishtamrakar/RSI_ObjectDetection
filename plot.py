@@ -47,5 +47,43 @@ plt.xlabel("Frame number")
 plt.ylabel("Count")
 plt.legend()
 
+# Average Plotting
+# Create a Pandas DataFrame with the data
+df = pd.DataFrame({
+    'frame_no': frame_no,
+    'person_count': person_count,
+    'vehicle_count': vehicle_count
+})
+# Calculate the rolling averages for each column
+window_size = 11
+rolling_df = df.rolling(window=window_size).mean().dropna()
+# Plot the data and the rolling averages
+plt.plot(df['frame_no'], df['person_count'], label="Person count", alpha = 0.5)
+plt.plot(df['frame_no'], df['vehicle_count'], label="Vehicle count", alpha = 0.5)
+plt.plot(rolling_df['frame_no'], rolling_df['person_count'], label=f"Person count")
+plt.plot(rolling_df['frame_no'], rolling_df['vehicle_count'], label=f"Vehicle count)")
+# Add axis labels and a legend
+plt.xlabel("Frame number")
+plt.ylabel("Count")
+plt.legend()
+# Display the plot
+plt.show()
+
+# Calculate the predicted values for each data point
+person_count_predicted = np.polyval(person_count_coeffs, frame_no)
+vehicle_count_predicted = np.polyval(vehicle_count_coeffs, frame_no)
+# Calculate the sum of squared errors (SSE) for each trend line
+person_count_sse = np.sum((person_count - person_count_predicted) ** 2)
+vehicle_count_sse = np.sum((vehicle_count - vehicle_count_predicted) ** 2)
+# Calculate the mean squared error (MSE) for each trend line
+person_count_mse = person_count_sse / len(frame_no)
+vehicle_count_mse = vehicle_count_sse / len(frame_no)
+# Calculate the root mean squared error (RMSE) for each trend line
+person_count_rmse = np.sqrt(person_count_mse)
+vehicle_count_rmse = np.sqrt(vehicle_count_mse)
+# Print the RMSE for each trend line
+print(f"Person count RMSE: {person_count_rmse:.2f}")
+print(f"Vehicle count RMSE: {vehicle_count_rmse:.2f}")
+
 # Display the plot
 plt.show()
