@@ -110,6 +110,9 @@ def detect(save_img=False):
             else:
                 p, s, im0, frame = path, '', im0s, getattr(dataset, 'frame', 0)
 
+            # Detect Lane function call
+            im0 = detect_lanes(im0)
+            
             # Draw frame number on the image
             font = cv2.FONT_HERSHEY_SIMPLEX
             cv2.putText(im0, f"Frame {frame}", (20, 60), font, 0.75, (0, 0, 255), 2, cv2.LINE_AA)
@@ -219,7 +222,41 @@ def detect(save_img=False):
 
     print(f'Done. ({time.time() - t0:.3f}s)')
 
+def detect_lanes(image):
+    # convert image to grayscale
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
+    # apply gaussian blur to smooth out noise
+    blur = cv2.GaussianBlur(gray, (5,5), 0)
+
+    # perform edge detection using Canny algorithm
+    edges = cv2.Canny(blur, 50, 150)
+
+    # define region of interest
+    mask = np.zeros_like(edges)
+    height, width = image.shape[:2]
+    vertices = np.array([[(0, height), (width/2, height/2), (width, height)]], dtype=np.int32)
+    cv2.fillPoly(mask, vertices, 255)
+    masked_edges = cv2.bitwise_and(edges, mask)
+
+    # perform hough transform to detect lines in the image
+    rho = 1
+    theta = np.pi/180
+    threshold = 40
+    min_line_len = 100
+    max_line_gap = 50
+    lines = cv2.HoughLinesP(masked_edges, rho, theta, threshold, np.array([]), min_line_len, max_line_gap)
+
+    # draw the detected lanes on the original image
+    line_image = np.zeros_like(image)
+    for line in lines:
+        x1, y1, x2, y2 = line[0]
+        cv2.line(line_image, (x1, y1), (x2, y2), (0, 0, 255), 5)
+
+    result = cv2.addWeighted(image, 0.8, line_image, 1, 0)
+
+    return result
+    
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--weights', nargs='+', type=str, default='yolov7.pt', help='model.pt path(s)')
