@@ -3,6 +3,7 @@ import time
 from pathlib import Path
 
 import cv2
+import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
 from numpy import random
@@ -14,6 +15,8 @@ from utils.general import check_img_size, check_requirements, check_imshow, non_
 from utils.plots import plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized, TracedModel
 
+import lane_detect
+from lane_detect import Lane
 
 def detect(save_img=False):
     source, weights, view_img, save_txt, imgsz, trace = opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size, not opt.no_trace
@@ -112,7 +115,7 @@ def detect(save_img=False):
 
             # Detect Lane function call
             im0 = detect_lanes(im0)
-            
+
             # Draw frame number on the image
             font = cv2.FONT_HERSHEY_SIMPLEX
             cv2.putText(im0, f"Frame {frame}", (20, 60), font, 0.75, (0, 0, 255), 2, cv2.LINE_AA)
@@ -172,6 +175,7 @@ def detect(save_img=False):
             # c = colors[int(cls)]
             cv2.putText(im0, label, (20, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 2, cv2.LINE_AA)
 
+
             # Print time (inference + NMS)
             print(f'{s}Done. ({(1E3 * (t2 - t1)):.1f}ms) Inference, ({(1E3 * (t3 - t2)):.1f}ms) NMS')
 
@@ -222,41 +226,45 @@ def detect(save_img=False):
 
     print(f'Done. ({time.time() - t0:.3f}s)')
 
-def detect_lanes(image):
-    # convert image to grayscale
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+def detect_lanes(original_frame):
+    # Create lane object
+    lane_obj = Lane(orig_frame=original_frame)
 
-    # apply gaussian blur to smooth out noise
-    blur = cv2.GaussianBlur(gray, (5,5), 0)
+    # Perform thresholding to isolate lane lines
+    lane_line_markings = lane_obj.get_line_markings()
 
-    # perform edge detection using Canny algorithm
-    edges = cv2.Canny(blur, 50, 150)
+    # Plot the region of interest on the image
+    lane_obj.plot_roi(plot=False)
+    # Perform the perspective transform to generate a bird's eye view
+    # If Plot == True, show image with new region of interest
+    warped_frame = lane_obj.perspective_transform(plot=False)
 
-    # define region of interest
-    mask = np.zeros_like(edges)
-    height, width = image.shape[:2]
-    vertices = np.array([[(0, height), (width/2, height/2), (width, height)]], dtype=np.int32)
-    cv2.fillPoly(mask, vertices, 255)
-    masked_edges = cv2.bitwise_and(edges, mask)
+    # Generate the image histogram to serve as a starting point
+    # for finding lane line pixels
+    histogram = lane_obj.calculate_histogram(plot=False)
 
-    # perform hough transform to detect lines in the image
-    rho = 1
-    theta = np.pi/180
-    threshold = 40
-    min_line_len = 100
-    max_line_gap = 50
-    lines = cv2.HoughLinesP(masked_edges, rho, theta, threshold, np.array([]), min_line_len, max_line_gap)
+    # Find lane line pixels using the sliding window method
+    left_fit, right_fit = lane_obj.get_lane_line_indices_sliding_windows(
+        plot=False)
 
-    # draw the detected lanes on the original image
-    line_image = np.zeros_like(image)
-    for line in lines:
-        x1, y1, x2, y2 = line[0]
-        cv2.line(line_image, (x1, y1), (x2, y2), (0, 0, 255), 5)
+    # Fill in the lane line
+    lane_obj.get_lane_line_previous_window(left_fit, right_fit, plot=False)
 
-    result = cv2.addWeighted(image, 0.8, line_image, 1, 0)
+    # Overlay lines on the original frame
+    frame_with_lane_lines = lane_obj.overlay_lane_lines(plot=False)
 
-    return result
-    
+    # Calculate lane line curvature (left and right lane lines)
+    lane_obj.calculate_curvature(print_to_terminal=False)
+
+    # Calculate center offset
+    lane_obj.calculate_car_position(print_to_terminal=False)
+
+    # Display curvature and center offset on image
+    frame_with_lane_lines2 = lane_obj.display_curvature_offset(
+        frame=frame_with_lane_lines, plot=True)
+
+    return frame_with_lane_lines2
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--weights', nargs='+', type=str, default='yolov7.pt', help='model.pt path(s)')
