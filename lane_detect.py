@@ -63,7 +63,7 @@ def display_lines(img, lines):
             x1, y1, x2, y2 = line1[0]
             x3, y3, x4, y4 = line2[0]
 
-            points = np.array([[x1, y1], [x2, y2], [x4, y4], [x3, y3]], np.int32)
+            points = np.array([[x1, y1], [x2, y2], [x4, y4], [x3, y3]], np.int64)
 
             cv2.fillPoly(line_image, [points], (0, 255, 0))
 
