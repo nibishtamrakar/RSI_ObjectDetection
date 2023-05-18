@@ -55,19 +55,17 @@ def addWeighted(frame, line_image):
 
 def display_lines(img, lines):
     line_image = np.zeros_like(img)
-    if lines is not None and len(lines) == 2:
+
+    if lines and len(lines) == 2:
         line1, line2 = lines[0], lines[1]
-        if line1 is not None and line2 is not None and len(line1) == 1 and len(line2) == 1:
+
+        if line1 and line2 and len(line1) == 1 and len(line2) == 1:
             x1, y1, x2, y2 = line1[0]
             x3, y3, x4, y4 = line2[0]
 
-            # Create the box using the intersection points
-            box_top_left = (min(x1, x2, x3, x4), min(y1, y2, y3, y4))
-            box_bottom_right = (max(x1, x2, x3, x4), max(y1, y2, y3, y4))
+            points = np.array([[x1, y1], [x2, y2], [x4, y4], [x3, y3]], np.int32)
 
-            cv2.line(line_image, (x1, y1), (x2, y2), (0, 0, 255), 10)
-            cv2.line(line_image, (x3, y3), (x4, y4), (0, 0, 255), 10)
-            cv2.rectangle(line_image, box_top_left, box_bottom_right, (0, 255, 0), 10)
+            cv2.fillPoly(line_image, [points], (0, 255, 0))
 
     return line_image
 
