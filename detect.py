@@ -15,8 +15,8 @@ from utils.general import check_img_size, check_requirements, check_imshow, non_
 from utils.plots import plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized, TracedModel
 
-import lane_detect
-from lane_detect import Lane
+import lane_detect1 as ln1
+
 
 def detect(save_img=False):
     source, weights, view_img, save_txt, imgsz, trace = opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size, not opt.no_trace
@@ -227,43 +227,16 @@ def detect(save_img=False):
     print(f'Done. ({time.time() - t0:.3f}s)')
 
 def detect_lanes(original_frame):
-    # Create lane object
-    lane_obj = Lane(orig_frame=original_frame)
+    canny_image = ln1.canny(original_frame)
+    cropped_canny = ln1.region_of_interest(canny_image)
+    # cv2.imshow("cropped_canny",cropped_canny)
 
-    # Perform thresholding to isolate lane lines
-    lane_line_markings = lane_obj.get_line_markings()
+    lines = ln1.houghLines(cropped_canny)
+    averaged_lines = ln1.average_slope_intercept(original_frame, lines)
+    line_image = ln1.display_lines(original_frame, averaged_lines)
+    combo_image = ln1.addWeighted(original_frame, line_image)
 
-    # Plot the region of interest on the image
-    lane_obj.plot_roi(plot=False)
-    # Perform the perspective transform to generate a bird's eye view
-    # If Plot == True, show image with new region of interest
-    warped_frame = lane_obj.perspective_transform(plot=False)
-
-    # Generate the image histogram to serve as a starting point
-    # for finding lane line pixels
-    histogram = lane_obj.calculate_histogram(plot=False)
-
-    # Find lane line pixels using the sliding window method
-    left_fit, right_fit = lane_obj.get_lane_line_indices_sliding_windows(
-        plot=False)
-
-    # Fill in the lane line
-    lane_obj.get_lane_line_previous_window(left_fit, right_fit, plot=False)
-
-    # Overlay lines on the original frame
-    frame_with_lane_lines = lane_obj.overlay_lane_lines(plot=False)
-
-    # Calculate lane line curvature (left and right lane lines)
-    lane_obj.calculate_curvature(print_to_terminal=False)
-
-    # Calculate center offset
-    lane_obj.calculate_car_position(print_to_terminal=False)
-
-    # Display curvature and center offset on image
-    frame_with_lane_lines2 = lane_obj.display_curvature_offset(
-        frame=frame_with_lane_lines, plot=True)
-
-    return frame_with_lane_lines2
+    return combo_image
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
